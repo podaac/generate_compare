@@ -102,7 +102,8 @@ class Compare:
         
         # Run comparison
         if to_download:
-            self.downloads = download_files(granule_intersection, download_dir, ops_prefix, test_prefix, self.test_token, self.logger)
+            self.logger.info(f"Downloading {len(self.ops_granules)} ops granules and {len(self.test_granules)} test granules.")
+            self.downloads = download_files(granule_intersection, download_dir, ops_prefix, test_prefix, self.ops_token, self.test_token, self.logger)
             self.netcdf = compare_netcdfs_dl(granule_intersection, download_dir, self.logger)
         else:
             try:
@@ -248,7 +249,7 @@ def run_query_name(shortname, granule_name, token, url, to_download):
     
     return s3_granule
 
-def download_files(granules, download_dir, ops_prefix, test_prefix, test_token, logger):
+def download_files(granules, download_dir, ops_prefix, test_prefix, ops_token, test_token, logger):
     """Download granules to download directory."""
     
     downloads = []
@@ -258,7 +259,7 @@ def download_files(granules, download_dir, ops_prefix, test_prefix, test_token, 
         granule_name = download_dir.joinpath("ops", granule.split('/')[-1])
         granule_name.parent.mkdir(exist_ok=True)
         granule_url = f"{ops_prefix}/{granule}"
-        downloads.append(download(granule_url, granule_name, logger))
+        downloads.append(download(granule_url, granule_name, logger, token=ops_token))
         
     # Test
     for granule in granules:
@@ -272,11 +273,8 @@ def download_files(granules, download_dir, ops_prefix, test_prefix, test_token, 
 def download(granule, granule_name, logger, token=None):
     """Download granule."""
     
-    if token: 
-        headers = { "Authorization": f"Bearer {token}" }
-        request = requests.get(granule, headers=headers, stream=True, )
-    else:
-        request = requests.get(granule, stream=True)
+    headers = { "Authorization": f"Bearer {token}" }
+    request = requests.get(granule, headers=headers, stream=True)
     with open(granule_name, "wb") as nc:
         for chunk in request.iter_content(chunk_size=1024):
             if chunk: nc.write(chunk)
