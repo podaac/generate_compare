@@ -125,7 +125,7 @@ class Compare:
         self.test_granules.extend(run_query_name(shortname, granule_name, self.test_token, self.TEST_CMR, to_download))
         self.ops_granules.extend(run_query_name(shortname, granule_name, self.ops_token, self.OPS_CMR, to_download))
    
-    def write_report(self, report_dir, shortname):
+    def write_report(self, report_dir, shortname, netcdf=None):
         """Write report on comparisons between ops and test files."""
         
         date_str = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
@@ -135,15 +135,33 @@ class Compare:
         with open(report_file, 'w') as rf:
             rf.write(f"===== Granule Report for {shortname} =====\n")
             rf.write("\n<<<< OPS vs. Test Granule Differences >>>>\n")
+            rf.write(f"\tNumber of granules in ops: {len(self.ops_granules)}.\n")
+            rf.write(f"\tNumber of granules in test: {len(self.test_granules)}.\n")
+            rf.write(f"=====================================================================\n")
+            
+            # Write out differences in granules
             if len(self.granule_diffs["ops_only"]) > 0:
                 rf.write("\tGranules in OPS only:\n")
                 for granule in self.granule_diffs["ops_only"]: rf.write(f"\t\t{granule}\n")
+                rf.write(f"=====================================================================\n")
             if len(self.granule_diffs["test_only"]) > 0:
                 rf.write("\tGranules in Test only:\n")
                 for granule in self.granule_diffs["test_only"]: rf.write(f"\t\t{granule}\n")
+                rf.write(f"=====================================================================\n")
+        
+            # Write out granules that were found if not writing NetCDF comparison
+            if not netcdf:
+                if len(self.ops_granules) > 0:
+                    rf.write("\tGranules in OPS:\n")
+                    for granule in self.ops_granules: rf.write(f"\t\t{granule}\n")
+                if len(self.test_granules) > 0:
+                    rf.write("\tGranules in Test:\n")
+                    for granule in self.test_granules: rf.write(f"\t\t{granule}\n")
         
         # Write results of NetCDF comparison
-        write_netcdf_report(self.netcdf, report_file, shortname)
+        if netcdf:
+            write_netcdf_report(self.netcdf, report_file, shortname)
+            
         self.logger.info(f"Report written: {report_file}.")
         
     def delete_downloads(self):
@@ -402,13 +420,15 @@ def compare_handler():
         
     if len(compare.ops_granules) == 0 and len(compare.test_granules) > 0:
         logger.info("No granules were found in ops.")
-        logger.info(f"Test granules: {compare.test_granules}.")
+        logger.info(f"# of test granules: {len(compare.test_granules)}.")
+        compare.write_report(report_dir, shortname)
         logger.info("Cannot compare. Exit.")
         sys.exit(0)
         
     elif len(compare.test_granules) == 0 and len(compare.ops_granules) > 0:
         logger.info("No granules were found in test.")
-        logger.info(f"Ops granules: {compare.ops_granules}.")
+        logger.info(f"# of ops granules: {len(compare.ops_granules)}.")
+        compare.write_report(report_dir, shortname)
         logger.info("Cannot compare. Exit.")
         sys.exit(0)
         
@@ -425,7 +445,7 @@ def compare_handler():
             logger.error("Encountered error while trying to compare granules. Exit.")
             sys.exit(1)
         
-        compare.write_report(report_dir, shortname)
+        compare.write_report(report_dir, shortname, netcdf=True)
     
     if args.delete:
         compare.delete_downloads()
