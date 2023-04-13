@@ -78,7 +78,7 @@ class Compare:
         }
         self.netcdf = {}
             
-    def compare_granules(self, to_download, download_dir):
+    def compare_granules(self, to_download, download_dir, is_hourly):
         """Compare test and ops granules to produce a report on differences."""
         
         # Test only
@@ -104,14 +104,16 @@ class Compare:
         if to_download:
             self.logger.info(f"Downloading {len(self.ops_granules)} ops granules and {len(self.test_granules)} test granules.")
             self.downloads = download_files(granule_intersection, download_dir, ops_prefix, test_prefix, self.ops_token, self.test_token, self.logger)
-            self.netcdf = compare_netcdfs_dl(granule_intersection, download_dir, self.logger)
+            if not is_hourly:
+                self.netcdf = compare_netcdfs_dl(granule_intersection, download_dir, self.logger)
         else:
-            try:
-                s3_creds = get_s3_creds(self.logger)
-            except botocore.exceptions.ClientError as e:
-                raise e
-            self.netcdf = compare_netcdfs_s3(granule_intersection, ops_prefix, test_prefix, s3_creds, self.logger)
-        
+            if not is_hourly:
+                try:
+                    s3_creds = get_s3_creds(self.logger)
+                    self.netcdf = compare_netcdfs_s3(granule_intersection, ops_prefix, test_prefix, s3_creds, self.logger)
+                except botocore.exceptions.ClientError as e:
+                    raise e
+    
     def query_date(self, shortname, start, end, to_download):
         """Query by temporal range and populate test and ops granules lists."""
         
@@ -126,10 +128,13 @@ class Compare:
         self.test_granules.extend(run_query_name(shortname, granule_name, self.test_token, self.TEST_CMR, to_download))
         self.ops_granules.extend(run_query_name(shortname, granule_name, self.ops_token, self.OPS_CMR, to_download))
    
-    def write_report(self, report_dir, shortname, netcdf=None):
+    def write_report(self, report_dir, shortname, start_time, netcdf=None):
         """Write report on comparisons between ops and test files."""
         
-        date_str = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+        if start_time:
+            date_str = datetime.datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S").strftime("%Y%m%dT%H%M%S")
+        else:
+            date_str = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
         report_file = report_dir.joinpath(f"report_{self.DATASET_DICT[shortname]}_{date_str}.txt")
         
         # Write granule differences
@@ -363,6 +368,10 @@ def create_args():
                             "--reportdir",
                             type=str,
                             help="Path to store reports at")
+    arg_parser.add_argument("-H",
+                            "--hourly",
+                            action='store_true',
+                            help="Indicates this is an hourly run and to not compare NetCDF file content")
     return arg_parser
 
 def get_logger():
@@ -402,6 +411,7 @@ def compare_handler():
     download_dir = pathlib.Path(args.downloaddir)
     report_dir = pathlib.Path(args.reportdir)
     to_delete = args.delete
+    is_hourly = args.hourly
     logger = get_logger()
     
     # Begin comparison operations
@@ -419,14 +429,14 @@ def compare_handler():
     if len(compare.ops_granules) == 0 and len(compare.test_granules) > 0:
         logger.info("No granules were found in ops.")
         logger.info(f"# of test granules: {len(compare.test_granules)}.")
-        compare.write_report(report_dir, shortname)
+        compare.write_report(report_dir, shortname, start_time)
         logger.info("Cannot compare. Exit.")
         sys.exit(0)
         
     elif len(compare.test_granules) == 0 and len(compare.ops_granules) > 0:
         logger.info("No granules were found in test.")
         logger.info(f"# of ops granules: {len(compare.ops_granules)}.")
-        compare.write_report(report_dir, shortname)
+        compare.write_report(report_dir, shortname, start_time)
         logger.info("Cannot compare. Exit.")
         sys.exit(0)
         
@@ -437,15 +447,18 @@ def compare_handler():
     
     else:
         try:
-            compare.compare_granules(to_download, download_dir)
+            compare.compare_granules(to_download, download_dir, is_hourly)
         except botocore.exceptions.ClientError as e:
             logger.error(f"Error - {e}")
             logger.error("Encountered error while trying to compare granules. Exit.")
             sys.exit(1)
         
-        compare.write_report(report_dir, shortname, netcdf=True)
+        if is_hourly:
+            compare.write_report(report_dir, shortname, start_time)
+        else:
+            compare.write_report(report_dir, shortname, start_time, netcdf=True)
     
-    if args.delete:
+    if to_delete:
         compare.delete_downloads()
     
     end = datetime.datetime.now()
