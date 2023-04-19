@@ -112,12 +112,12 @@ class Compare:
             except botocore.exceptions.ClientError as e:
                 raise e
     
-    def query_date(self, shortname, start, end, to_download):
+    def query_date(self, shortname, start, end, to_download, search_revision):
         """Query by temporal range and populate test and ops granules lists."""
         
         temporal_range = f"{start}Z,{end}Z"
-        self.test_granules = run_query_date(shortname, temporal_range, self.test_token, self.TEST_CMR, to_download)
-        self.ops_granules = run_query_date(shortname, temporal_range, self.ops_token, self.OPS_CMR, to_download)
+        self.test_granules = run_query_date(shortname, temporal_range, self.test_token, self.TEST_CMR, to_download, search_revision)
+        self.ops_granules = run_query_date(shortname, temporal_range, self.ops_token, self.OPS_CMR, to_download, search_revision)
 
     def query_name(self, shortname, granule_name, to_download):
         """Query by granule name and populate test and ops granules lists."""
@@ -216,16 +216,23 @@ def get_token(edl_creds, url, logger):
         logger.info(f"Successfully retrieved token from {url}.")
         return token_data[0]["access_token"]
     
-def run_query_date(shortname, temporal_range, token, url, to_download):
+def run_query_date(shortname, temporal_range, token, url, to_download, search_revision):
     """Executes temporal range CMR query and returns S3 urls.""" 
     
     # Search for granule in test environment
     headers = { "Authorization": f"Bearer {token}" }
-    params = {
-        "short_name": shortname,
-        "temporal": temporal_range,
-        "page_size": 2000
-    }
+    if search_revision:
+        params = {
+            "short_name": shortname,
+            "revision_date": temporal_range,
+            "page_size": 2000
+        }
+    else:
+        params = {
+            "short_name": shortname,
+            "temporal": temporal_range,
+            "page_size": 2000
+        }
     res = requests.post(url=url, headers=headers, params=params)        
     granule = res.json()
     if to_download:
@@ -371,6 +378,10 @@ def create_args():
                             "--logdir",
                             type=str,
                             help="Path to store logs at")
+    arg_parser.add_argument("-v",
+                            "--revision",
+                            type=str,
+                            help="Whether to search by revision date")
     return arg_parser
 
 def get_logger(log_file):
@@ -413,6 +424,7 @@ def compare_handler():
     download_dir = pathlib.Path(args.downloaddir)
     report_dir = pathlib.Path(args.reportdir)
     to_delete = args.delete
+    search_revision = args.revision
     
     # Logging
     if start_time:
@@ -432,7 +444,7 @@ def compare_handler():
     if granule_name:
         compare.query_name(shortname, granule_name, to_download)
     else:
-        compare.query_date(shortname, start_time, end_time, to_download)
+        compare.query_date(shortname, start_time, end_time, to_download, search_revision)
         
     if len(compare.ops_granules) == 0 and len(compare.test_granules) > 0:
         logger.info("No granules were found in ops.")
