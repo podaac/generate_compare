@@ -1,1 +1,3 @@
 __pycache__
+aws_creds_env.sh
+run_compare_hourly.sh

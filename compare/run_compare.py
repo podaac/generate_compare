@@ -78,7 +78,7 @@ class Compare:
         }
         self.netcdf = {}
             
-    def compare_granules(self, to_download, download_dir, is_hourly):
+    def compare_granules(self, to_download, download_dir):
         """Compare test and ops granules to produce a report on differences."""
         
         # Test only
@@ -104,15 +104,13 @@ class Compare:
         if to_download:
             self.logger.info(f"Downloading {len(self.ops_granules)} ops granules and {len(self.test_granules)} test granules.")
             self.downloads = download_files(granule_intersection, download_dir, ops_prefix, test_prefix, self.ops_token, self.test_token, self.logger)
-            if not is_hourly:
-                self.netcdf = compare_netcdfs_dl(granule_intersection, download_dir, self.logger)
+            self.netcdf = compare_netcdfs_dl(granule_intersection, download_dir, self.logger)
         else:
-            if not is_hourly:
-                try:
-                    s3_creds = get_s3_creds(self.logger)
-                    self.netcdf = compare_netcdfs_s3(granule_intersection, ops_prefix, test_prefix, s3_creds, self.logger)
-                except botocore.exceptions.ClientError as e:
-                    raise e
+            try:
+                s3_creds = get_s3_creds(self.logger)
+                self.netcdf = compare_netcdfs_s3(granule_intersection, ops_prefix, test_prefix, s3_creds, self.logger)
+            except botocore.exceptions.ClientError as e:
+                raise e
     
     def query_date(self, shortname, start, end, to_download):
         """Query by temporal range and populate test and ops granules lists."""
@@ -280,6 +278,7 @@ def download(granule, granule_name, logger, token=None):
     
     headers = { "Authorization": f"Bearer {token}" }
     request = requests.get(granule, headers=headers, stream=True)
+    logger.info(f"Request headers for {granule.split('/')[-1]}: {request.headers['Content-Type']}, {request.headers['Content-Length']}")
     with open(granule_name, "wb") as nc:
         for chunk in request.iter_content(chunk_size=1024):
             if chunk: nc.write(chunk)
@@ -368,28 +367,31 @@ def create_args():
                             "--reportdir",
                             type=str,
                             help="Path to store reports at")
-    arg_parser.add_argument("-H",
-                            "--hourly",
-                            action='store_true',
-                            help="Indicates this is an hourly run and to not compare NetCDF file content")
+    arg_parser.add_argument("-l",
+                            "--logdir",
+                            type=str,
+                            help="Path to store logs at")
     return arg_parser
 
-def get_logger():
+def get_logger(log_file):
     """Return a formatted logger object."""
     
     # Create a Logger object and set log level
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
+    log_format = logging.Formatter("%(asctime)s - %(module)s - %(levelname)s : %(message)s")
 
-    # Create a handler to console and set level
+    # Create a handler to console and set level and format
     console_handler = logging.StreamHandler()
-
-    # Create a formatter and add it to the handler
-    console_format = logging.Formatter("%(asctime)s - %(module)s - %(levelname)s : %(message)s")
-    console_handler.setFormatter(console_format)
+    console_handler.setFormatter(log_format)
+    
+    # Create a handler to file and set level and format
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(log_format)
 
     # Add handlers to logger
     logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
 
     # Return logger
     return logger
@@ -411,8 +413,14 @@ def compare_handler():
     download_dir = pathlib.Path(args.downloaddir)
     report_dir = pathlib.Path(args.reportdir)
     to_delete = args.delete
-    is_hourly = args.hourly
-    logger = get_logger()
+    
+    # Logging
+    if start_time:
+        date_str = datetime.datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S").strftime("%Y%m%dT%H%M%S")
+    else:
+        date_str = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+    log_file = pathlib.Path(args.logdir).joinpath(f"{shortname}_{date_str}.log")
+    logger = get_logger(log_file)
     
     # Begin comparison operations
     compare = Compare(logger)
@@ -447,16 +455,13 @@ def compare_handler():
     
     else:
         try:
-            compare.compare_granules(to_download, download_dir, is_hourly)
+            compare.compare_granules(to_download, download_dir)
         except botocore.exceptions.ClientError as e:
             logger.error(f"Error - {e}")
             logger.error("Encountered error while trying to compare granules. Exit.")
             sys.exit(1)
         
-        if is_hourly:
-            compare.write_report(report_dir, shortname, start_time)
-        else:
-            compare.write_report(report_dir, shortname, start_time, netcdf=True)
+        compare.write_report(report_dir, shortname, start_time, netcdf=True)
     
     if to_delete:
         compare.delete_downloads()
