@@ -112,12 +112,12 @@ class Compare:
             except botocore.exceptions.ClientError as e:
                 raise e
     
-    def query_date(self, shortname, start, end, to_download, search_revision):
+    def query_date(self, shortname, start, end, to_download, search_revision, logger):
         """Query by temporal range and populate test and ops granules lists."""
         
         temporal_range = f"{start}Z,{end}Z"
-        self.test_granules = run_query_date(shortname, temporal_range, self.test_token, self.TEST_CMR, to_download, search_revision)
-        self.ops_granules = run_query_date(shortname, temporal_range, self.ops_token, self.OPS_CMR, to_download, search_revision)
+        self.test_granules = run_query_date(shortname, temporal_range, self.test_token, self.TEST_CMR, to_download, search_revision, logger)
+        self.ops_granules = run_query_date(shortname, temporal_range, self.ops_token, self.OPS_CMR, to_download, search_revision, logger)
 
     def query_name(self, shortname, granule_name, to_download):
         """Query by granule name and populate test and ops granules lists."""
@@ -216,7 +216,7 @@ def get_token(edl_creds, url, logger):
         logger.info(f"Successfully retrieved token from {url}.")
         return token_data[0]["access_token"]
     
-def run_query_date(shortname, temporal_range, token, url, to_download, search_revision):
+def run_query_date(shortname, temporal_range, token, url, to_download, search_revision, logger):
     """Executes temporal range CMR query and returns S3 urls.""" 
     
     # Search for granule in test environment
@@ -233,8 +233,11 @@ def run_query_date(shortname, temporal_range, token, url, to_download, search_re
             "temporal": temporal_range,
             "page_size": 2000
         }
-    res = requests.post(url=url, headers=headers, params=params)        
+    logger.info(f"Search URL: {url}")
+    logger.info(f"Search parameters: {params}")
+    res = requests.post(url=url, headers=headers, params=params)    
     granule = res.json()
+    # logger.info(f"Search response: {granule}")
     if to_download:
         s3_granules = [ url["URL"] for item in granule["items"] for url in item["umm"]["RelatedUrls"] if url["Type"] == "GET DATA" ]
     else:
@@ -444,7 +447,7 @@ def compare_handler():
     if granule_name:
         compare.query_name(shortname, granule_name, to_download)
     else:
-        compare.query_date(shortname, start_time, end_time, to_download, search_revision)
+        compare.query_date(shortname, start_time, end_time, to_download, search_revision, logger)
         
     if len(compare.ops_granules) == 0 and len(compare.test_granules) > 0:
         logger.info("No granules were found in ops.")
