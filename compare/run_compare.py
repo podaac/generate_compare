@@ -383,7 +383,7 @@ def create_args():
                             help="Path to store logs at")
     arg_parser.add_argument("-v",
                             "--revision",
-                            type=str,
+                            action='store_true',
                             help="Whether to search by revision date")
     return arg_parser
 
