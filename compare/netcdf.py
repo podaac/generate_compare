@@ -178,23 +178,36 @@ def compare_variables(dev_ds, prod_ds):
 def write_netcdf_report(data_dict, report_file, dataset):
     """Writes NetCDF file differences to disk."""
 
+    granule_data = { "granules": {} }
     with open(report_file, 'a') as rf:
-        rf.write(f"===== NetCDF Reports for {dataset} =====\n")
+        rf.write(f"\n=================== NetCDF Reports for {dataset} =======================\n")
         nc_not_equal = []
         for nc_file in data_dict.keys():
             rf.write(f"\n\n<< Report for file: {nc_file} >>\n")    
             equal_dims = write_netcdf_dims(data_dict[nc_file]["dim_dict"], rf)
-            equal_atts = write_netcdf_atts(data_dict[nc_file]["att_dict"], rf)
+            equal_atts, ops_date, test_date = write_netcdf_atts(data_dict[nc_file]["att_dict"], rf)
             equal_vars = write_netcdf_var(data_dict[nc_file]["var_dict"], rf)
             if not equal_dims or not equal_atts or not equal_vars: nc_not_equal.append(nc_file)
-            rf.write(f"=====================================================================\n")
+            granule_data["granules"][nc_file] = {
+                "equal_dims": equal_dims,
+                "equal_atts": equal_atts,
+                "equal_vars": equal_vars,
+                "ops_date": ops_date,
+                "uat_date": test_date
+            }
+            rf.write("--------------------------------------------------------------------------------------\n")
 
         if len(nc_not_equal) != 0:
+            granule_data["nc_not_equal"] = nc_not_equal
             rf.write("\n<<<< NetCDF files that are different: >>>>\n")
             for nc_file in nc_not_equal:
                 rf.write(f"\t{nc_file}\n")
         else:
             rf.write("\n<<<< All NetCDF files that were compared are equal. >>>>\n")
+        
+        if granule_data:
+            granule_data["report_file"] = report_file.name    
+        return granule_data
 
 def write_netcdf_atts(att_dict, rf):
     """Write global attribute differences to the report.
@@ -235,11 +248,14 @@ def write_netcdf_atts(att_dict, rf):
             rf.write(f"\t\tName: {e[0]}\n")
             rf.write(f"\t\t\tProduction: {e[1]}\n")
             rf.write(f"\t\t\tDevelopment: {e[2]}\n")
-            if e[0] == "date_created": equal = True
+            if e[0] == "date_created": 
+                prod_date = e[1]
+                test_date = e[2]
+                if len(att_dict["global_att"]) == 1: equal = True
     else:
         rf.write("\t\tAttributes are the same.\n")
-
-    return equal
+    
+    return equal, prod_date, test_date
 
 def write_netcdf_dims(dim_dict, rf):
     """Write dimension differences to the report.
