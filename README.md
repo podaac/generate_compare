@@ -3,7 +3,7 @@
 Compare L2P Granules.
 
 This script compares the L2P granules produced in OPS with those produced in a
-test environment. It compares the number of granules produced as well as the
+test environment (e.g. SIT, UAT). It compares the number of granules produced as well as the
 content of the NetCDF files.
 
 This file can be run with command line arguments and contains the following:
@@ -35,9 +35,13 @@ Command line arguments:
 -o : Path download files to. Optional.
 -r : Path to store reports at. Required.
 -t : Indicates that downloaded NetCDF files should be deleted. Optional.
+-l : Path to store logs at. Required.
+-v : Whether to search by revision date. Optional.
+-w : Write HTML files to display report instead of txt. Optional.
+-p : Directory path to store HTML pages. Required if use -w.
 
 ## Granule
-python3 run_compare.py -g "20230330080000-JPL-L2P_GHRSST-SSTskin-MODIS_A-D-v02.0-fv01.0" -c "MODIS_A-JPL-L2P-v2019.0" -d -o "/generate/data/compare" -r "/generate/data/compare/reports"
+python3 run_compare.py -g "20230330080000-JPL-L2P_GHRSST-SSTskin-MODIS_A-D-v02.0-fv01.0" -c "MODIS_A-JPL-L2P-v2019.0" -d -o "/generate/data/compare" -r "/generate/data/compare/reports" -l "/generate/data/compare/logs"
 
 ## Temporal range
-python3 run_compare.py -s "2023-03-30T06:30:00" -e " 2023-03-30T9:30:00" -c "MODIS_A-JPL-L2P-v2019.0" -d -o "/generate/data/compare" -r "/generate/data/compare/reports"
+python3 run_compare.py -s "2023-03-30T06:30:00" -e "2023-03-30T9:30:00" -c "MODIS_A-JPL-L2P-v2019.0" -d -o "/generate/data/compare" -r "/generate/data/compare/reports" -l "/generate/data/compare/logs" -t -w -p -l "/var/www/compare" -v

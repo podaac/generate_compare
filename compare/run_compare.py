@@ -35,7 +35,8 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 # Local imports
-from netcdf import compare_netcdfs_s3, compare_netcdfs_dl, write_netcdf_report
+from netcdf import compare_netcdfs_s3, compare_netcdfs_dl
+from write import write_txt_report, write_html_reports
 
 # Constants
 S3_OPS = "https://archive.podaac.earthdata.nasa.gov/s3credentials"
@@ -125,49 +126,19 @@ class Compare:
         # Search for and store granules for different environments
         self.test_granules.extend(run_query_name(shortname, granule_name, self.test_token, self.TEST_CMR, to_download))
         self.ops_granules.extend(run_query_name(shortname, granule_name, self.ops_token, self.OPS_CMR, to_download))
-   
-    def write_report(self, report_dir, shortname, start_time, netcdf=None):
-        """Write report on comparisons between ops and test files."""
+    
+    def write_reports(self, report_dir, html_dir, shortname, start_time, create_html, netcdf=False):
         
-        if start_time:
-            date_str = datetime.datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S").strftime("%Y%m%dT%H%M%S")
-        else:
-            date_str = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
-        report_file = report_dir.joinpath(f"report_{self.DATASET_DICT[shortname]}_{date_str}.txt")
+        granule_data = write_txt_report(report_dir, shortname, start_time,
+                                        self.ops_granules, self.test_granules, 
+                                        self.granule_diffs, self.netcdf, 
+                                        self.logger, netcdf)
         
-        # Write granule differences
-        with open(report_file, 'w') as rf:
-            rf.write(f"===== Granule Report for {shortname} =====\n")
-            rf.write("\n<<<< OPS vs. Test Granule Differences >>>>\n")
-            rf.write(f"\tNumber of granules in ops: {len(self.ops_granules)}.\n")
-            rf.write(f"\tNumber of granules in test: {len(self.test_granules)}.\n")
-            rf.write(f"=====================================================================\n")
-            
-            # Write out differences in granules
-            if len(self.granule_diffs["ops_only"]) > 0:
-                rf.write("\tGranules in OPS only:\n")
-                for granule in self.granule_diffs["ops_only"]: rf.write(f"\t\t{granule}\n")
-                rf.write(f"=====================================================================\n")
-            if len(self.granule_diffs["test_only"]) > 0:
-                rf.write("\tGranules in Test only:\n")
-                for granule in self.granule_diffs["test_only"]: rf.write(f"\t\t{granule}\n")
-                rf.write(f"=====================================================================\n")
-        
-            # Write out granules that were found if not writing NetCDF comparison
-            if not netcdf:
-                if len(self.ops_granules) > 0:
-                    rf.write("\tGranules in OPS:\n")
-                    for granule in self.ops_granules: rf.write(f"\t\t{granule}\n")
-                if len(self.test_granules) > 0:
-                    rf.write("\tGranules in Test:\n")
-                    for granule in self.test_granules: rf.write(f"\t\t{granule}\n")
-        
-        # Write results of NetCDF comparison
-        if netcdf:
-            write_netcdf_report(self.netcdf, report_file, shortname)
-            
-        self.logger.info(f"Report written: {report_file}.")
-        
+        if create_html:
+            write_html_reports(html_dir, shortname, report_dir, start_time, 
+                               self.ops_granules, self.test_granules, 
+                               self.granule_diffs, granule_data, self.logger)
+    
     def delete_downloads(self):
         """Delete downloaded files."""
         
@@ -184,7 +155,7 @@ def get_edl_creds(logger):
         ssm_client = boto3.client('ssm', region_name="us-west-2")
         username = ssm_client.get_parameter(Name="generate-edl-username", WithDecryption=True)["Parameter"]["Value"]
         password = ssm_client.get_parameter(Name="generate-edl-password", WithDecryption=True)["Parameter"]["Value"]
-        logger.info("Retrieved EDL username and password.")
+        logger.info(f"Retrieved EDL username: {username} and password.")
     except botocore.exceptions.ClientError as error:
         logger.error("Could not retrieve EDL credentials from SSM Parameter Store.")
         logger.error(error)
@@ -385,6 +356,15 @@ def create_args():
                             "--revision",
                             action='store_true',
                             help="Whether to search by revision date")
+    arg_parser.add_argument("-w",
+                            "--html",
+                            action='store_true',
+                            help="Write HTML files to display report instead of txt")
+    arg_parser.add_argument("-p",
+                            "--htmldir",
+                            type=str,
+                            default="",
+                            help="Directory path to store HTML pages")
     return arg_parser
 
 def get_logger(log_file):
@@ -428,6 +408,8 @@ def compare_handler():
     report_dir = pathlib.Path(args.reportdir)
     to_delete = args.delete
     search_revision = args.revision
+    create_html = args.html
+    html_dir = pathlib.Path(args.htmldir)
     
     # Logging
     if start_time:
@@ -452,20 +434,21 @@ def compare_handler():
     if len(compare.ops_granules) == 0 and len(compare.test_granules) > 0:
         logger.info("No granules were found in ops.")
         logger.info(f"# of test granules: {len(compare.test_granules)}.")
-        compare.write_report(report_dir, shortname, start_time)
+        compare.write_reports(report_dir, html_dir, shortname, start_time, create_html)
         logger.info("Cannot compare. Exit.")
         sys.exit(0)
         
     elif len(compare.test_granules) == 0 and len(compare.ops_granules) > 0:
         logger.info("No granules were found in test.")
         logger.info(f"# of ops granules: {len(compare.ops_granules)}.")
-        compare.write_report(report_dir, shortname, start_time)
+        compare.write_reports(report_dir, html_dir, shortname, start_time, create_html)
         logger.info("Cannot compare. Exit.")
         sys.exit(0)
         
     elif len(compare.ops_granules) == 0 and len(compare.test_granules) == 0:
         logger.info("No ops or test granules were found.")
         logger.info("Cannot compare. Exit.")
+        compare.write_reports(report_dir, html_dir, shortname, start_time, create_html)
         sys.exit(0)
     
     else:
@@ -476,7 +459,7 @@ def compare_handler():
             logger.error("Encountered error while trying to compare granules. Exit.")
             sys.exit(1)
         
-        compare.write_report(report_dir, shortname, start_time, netcdf=True)
+        compare.write_reports(report_dir, html_dir, shortname, start_time, create_html, netcdf=True)
     
     if to_delete:
         compare.delete_downloads()
