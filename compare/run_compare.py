@@ -411,6 +411,10 @@ def compare_handler():
     create_html = args.html
     html_dir = pathlib.Path(args.htmldir)
     
+    # Create user directories
+    download_dir.mkdir(parents=True, exist_ok=True)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    
     # Logging
     if start_time:
         date_str = datetime.datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S").strftime("%Y%m%dT%H%M%S")
