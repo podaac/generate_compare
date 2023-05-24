@@ -176,8 +176,8 @@ def get_token(edl_creds, url, logger):
     
     # Get EDL bearer token
     post_response = requests.get(url, 
-                                  headers={"Accept": "application/json"}, 
-                                  auth=HTTPBasicAuth(edl_creds["username"], edl_creds["password"]))
+                                 headers={"Accept": "application/json"}, 
+                                 auth=HTTPBasicAuth(edl_creds["username"], edl_creds["password"]))
     token_data = post_response.json()
     if len(token_data) == 0:
         logger.error(token_data)
@@ -406,6 +406,7 @@ def compare_handler():
     to_download = args.download
     download_dir = pathlib.Path(args.downloaddir)
     report_dir = pathlib.Path(args.reportdir)
+    log_dir = pathlib.Path(args.logdir)
     to_delete = args.delete
     search_revision = args.revision
     create_html = args.html
@@ -414,13 +415,14 @@ def compare_handler():
     # Create user directories
     download_dir.mkdir(parents=True, exist_ok=True)
     report_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
     
     # Logging
     if start_time:
         date_str = datetime.datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%S").strftime("%Y%m%dT%H%M%S")
     else:
         date_str = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
-    log_file = pathlib.Path(args.logdir).joinpath(f"{shortname}_{date_str}.log")
+    log_file = log_dir.joinpath(f"{shortname}_{date_str}.log")
     logger = get_logger(log_file)
     
     # Begin comparison operations
