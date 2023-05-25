@@ -126,6 +126,12 @@ def write_html_reports(html_dir, shortname, report_dir, start_time, ops_granules
     # Archive previous report and replace with current
     archive_index = archive_html_report(html_dir, dataset, logger)
     
+    # Write detail report listing
+    write_dir_listing(html_dir.joinpath("detail-reports"), "Detail Report Listing", html_dir, dataset, logger)
+    
+    # Write archive listing
+    write_dir_listing(html_dir.joinpath("archive"), "Archive", html_dir, dataset, logger)
+    
     # Write historic report
     write_timeline_html(html_dir, dataset, date_str, 
                         ops_granules, test_granules, nc_not_equal,
@@ -169,8 +175,8 @@ def write_html_header(html_file, dataset):
     html_file.write("<li class='nav'><a href='index.html'>Home</a></li>\n")
     html_file.write(f"<li class='nav'><a href='index-{dataset}.html'>Overview</a></li>\n")
     html_file.write(f"<li class='nav'><a href='timeline-{dataset}.html'>Timeline</a></li>\n")
-    html_file.write("<li class='nav'><a href='detail-reports'>Detail Reports</a></li>\n")
-    html_file.write("<li class='nav'><a href='archive'>Archives</a></li>\n")
+    html_file.write(f"<li class='nav'><a href='detail-reports-{dataset}.html'>Detail Reports</a></li>\n")
+    html_file.write(f"<li class='nav'><a href='archive-{dataset}.html'>Archive</a></li>\n")
     html_file.write("</ul>\n")
     
 def check_not_equal_status(granule_data, ops_num, uat_num):
@@ -300,15 +306,38 @@ def archive_html_report(html_dir, dataset, logger):
     
     return archive_index
 
+def write_dir_listing(dir, title, html_dir, dataset, logger):
+    """Write HTML page that contains links to files found at directory."""
+    
+    # Get files
+    with os.scandir(dir) as entries:
+        dir_list = [ entry.name for entry in entries if dataset in entry.name ]
+    dir_list.sort(reverse=True)
+        
+    # Open HTML file and write header plus title
+    html_file = html_dir.joinpath(f"{dir.name}-{dataset}.html")
+    html_fh = open(html_file, 'w')
+    write_html_header(html_fh, dataset)
+    html_fh.write(f"<h1>{title}</h2>\n")
+    
+    # Write out list of links to directory files
+    html_fh.write("<ul>\n")
+    for file in dir_list: 
+        if file == "style.css": continue
+        html_fh.write(f"<li><a href='{dir.name}/{file}' target='_blank'>{file}</a></li>\n")
+    html_fh.write("</ul>\n")
+    
+    logger.info(f"Wrote HTML page for {title}.")
+
 def update_nav(archive_index):
     """Update navigation bar for archived page."""
     
     with open(archive_index) as fh:
         archive_data = fh.read().splitlines()
-        
+     
     for i in range(len(archive_data)):
-        if "class='nav'" in archive_data[i]:
-            archive_data[i] = archive_data[i].replace("href='", "href='../")
+        if "class='nav'" in archive_data[i] or "<h3><a href='detail-reports/" in archive_data[i]:
+            archive_data[i] = archive_data[i].replace("href='", "href='../")     
     
     archive_data = '\n'.join(archive_data)
     with open(archive_index, 'w') as fh:
