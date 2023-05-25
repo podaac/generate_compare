@@ -100,10 +100,13 @@ class Compare:
         ops = set([ops.split('/')[-1] for ops in self.ops_granules])
         test = set([test.split('/')[-1] for test in self.test_granules])
         granule_intersection = list(ops.intersection(test))
+        self.logger.info(f"Number of OPS granules: {len(self.ops_granules)}.")
+        self.logger.info(f"Number of UAT granules: {len(self.test_granules)}.")
+        self.logger.info(f"OPS and UAT intersection: {len(granule_intersection)} granules.")
         
         # Run comparison
         if to_download:
-            self.logger.info(f"Downloading {len(self.ops_granules)} ops granules and {len(self.test_granules)} test granules.")
+            self.logger.info(f"Downloading {len(granule_intersection)} ops granules and {len(granule_intersection)} test granules.")
             self.downloads = download_files(granule_intersection, download_dir, ops_prefix, test_prefix, self.ops_token, self.test_token, self.logger)
             self.netcdf = compare_netcdfs_dl(granule_intersection, download_dir, self.logger)
         else:
