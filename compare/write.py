@@ -143,7 +143,7 @@ def setup_html(html_dir, report_dir, logger):
     logger.info(f"Moved all NetCDF detail reports to: {detail_reports}.")
     
     # Stylesheet
-    css = pathlib.Path().absolute().joinpath("html_files", "style.css")
+    css = pathlib.Path(os.path.dirname(__file__)).joinpath("html_files", "style.css")
     shutil.copy(css, html_dir.joinpath(css.name))
     logger.info(f"Copied css file to web directory: {html_dir.joinpath(css.name)}.")
     
@@ -151,7 +151,7 @@ def setup_html(html_dir, report_dir, logger):
     logger.info(f"Copied css file to archive directory: {html_dir.joinpath('archive', css.name)}.")
     
     # HTML
-    html = pathlib.Path().absolute().joinpath("html_files", "index.html")
+    html = pathlib.Path(os.path.dirname(__file__)).joinpath("html_files", "index.html")
     shutil.copy(html, html_dir.joinpath(html.name))
     logger.info(f"Copied html file to web directory: {html_dir.joinpath(html.name)}.")
     
