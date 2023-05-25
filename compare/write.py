@@ -105,8 +105,12 @@ def write_html_reports(html_dir, shortname, report_dir, start_time, ops_granules
 
     nc_not_equal = check_not_equal_status(granule_data, len(ops_granules), len(test_granules))
     no_granule_data = True if not granule_data else False
+    if "report_file" in granule_data.keys(): 
+        report_file = granule_data["report_file"]
+    else:
+        report_file = None
     write_html_overview(date_str, html_fh, ops_granules, test_granules, 
-                        granule_diffs, nc_not_equal, no_granule_data)
+                        granule_diffs, nc_not_equal, no_granule_data, report_file)
     logger.info("Wrote HTML overview table and stats for hourly page.")
     
     # Append detailed report for each NetCDF
@@ -184,7 +188,7 @@ def check_not_equal_status(granule_data, ops_num, uat_num):
     return nc_not_equal
     
 def write_html_overview(date_str, html_file, ops_granules, test_granules, 
-                        granule_diffs, nc_not_equal, no_granule_data):
+                        granule_diffs, nc_not_equal, no_granule_data, report_file):
     """Write top level report for granule differences."""
     
     # Table
@@ -194,6 +198,10 @@ def write_html_overview(date_str, html_file, ops_granules, test_granules,
     table_body = f"\n<tbody>\n<tr><td>{date_str}</td><td>{len(ops_granules)}</td><td>{len(test_granules)}</td></tr>\n</tbody>\n"
     html_file.write("<h2>Overview Comparison</h2>\n")
     html_file.write(f"<table>\n{table_head}{table_body}</table>\n")
+    
+    # Report File
+    if report_file:
+        html_file.write(f"<h3><a href='detail-reports/{report_file}' target='_blank'>{report_file}</a></h3>")
     
     if len(granule_diffs["ops_only"]) > 0 or len(granule_diffs["test_only"]) > 0:
         html_file.write("<h2>Overview Differences</h2>\n")        
