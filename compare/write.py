@@ -110,13 +110,18 @@ def write_html_reports(html_dir, shortname, report_dir, start_time, ops_granules
     else:
         report_file = None
     write_html_overview(date_str, html_fh, ops_granules, test_granules, 
-                        granule_diffs, nc_not_equal, no_granule_data, report_file)
+                        report_file)
     logger.info("Wrote HTML overview table and stats for hourly page.")
     
     # Append detailed report for each NetCDF
     if granule_data:
         write_granule_html(html_fh, granule_data)
         logger.info("Wrote HTML granule-level table and stats for hourly page.")
+    
+    # Write a list of differences   
+    write_overview_list(html_fh, no_granule_data, granule_diffs, ops_granules,
+                        test_granules, nc_not_equal)
+    logger.info("Wrote list of differences to overview hourly page.")
         
     # Close file
     html_fh.write("</body>")
@@ -194,7 +199,7 @@ def check_not_equal_status(granule_data, ops_num, uat_num):
     return nc_not_equal
     
 def write_html_overview(date_str, html_file, ops_granules, test_granules, 
-                        granule_diffs, nc_not_equal, no_granule_data, report_file):
+                        report_file):
     """Write top level report for granule differences."""
     
     # Table
@@ -208,34 +213,6 @@ def write_html_overview(date_str, html_file, ops_granules, test_granules,
     # Report File
     if report_file:
         html_file.write(f"<h3><a href='detail-reports/{report_file}' target='_blank'>{report_file}</a></h3>")
-    
-    if len(granule_diffs["ops_only"]) > 0 or len(granule_diffs["test_only"]) > 0:
-        html_file.write("<h2>Overview Differences</h2>\n")        
-    # OPS only
-    if len(granule_diffs["ops_only"]) > 0:
-        html_file.write("<b>Granules in OPS only: </b>\n")
-        write_html_list(html_file, granule_diffs["ops_only"])
-    # Test only
-    if len(granule_diffs["test_only"]) > 0:
-        html_file.write("<b>Granules in UAT only: </b>\n")
-        write_html_list(html_file, granule_diffs["test_only"])
-        
-    # Write out granules that were found if not writing NetCDF comparison
-    if  no_granule_data:
-        if len(ops_granules) > 0:
-            html_file.write("<h2>All Granules in OPS:</h2>\n")
-            write_html_list(html_file, ops_granules)
-        if len(test_granules) > 0:
-            html_file.write("<h2>All Granules in UAT:</h2>\n")
-            write_html_list(html_file, test_granules)
-        
-    # NetCDF files that were not equal
-    if len(nc_not_equal) > 0:
-        if nc_not_equal[0] != "Error":
-            html_file.write("<h2>Unequal NetCDF Granules: </h2>\n")
-            html_file.write("<ul>\n")
-            for granule in nc_not_equal: html_file.write(f"<li>{granule}</li>\n")
-            html_file.write("</ul>\n")
 
 def write_html_list(html_file, data):
     """Write out an unorder HTML list."""
@@ -269,6 +246,38 @@ def write_granule_html(html_fh, granule_data):
     html_fh.write("<h2>Granule-Level Comparison</h2>\n")
     html_fh.write(f"<table>\n{table_head}{table_body}</table>\n")
     
+def write_overview_list(html_file, no_granule_data, granule_diffs, ops_granules,
+                        test_granules, nc_not_equal):
+    """Write out lists of granule differences."""
+    
+    if len(granule_diffs["ops_only"]) > 0 or len(granule_diffs["test_only"]) > 0:
+        html_file.write("<h2>Overview Differences</h2>\n")        
+    # OPS only
+    if len(granule_diffs["ops_only"]) > 0:
+        html_file.write("<b>Granules in OPS only: </b>\n")
+        write_html_list(html_file, granule_diffs["ops_only"])
+    # Test only
+    if len(granule_diffs["test_only"]) > 0:
+        html_file.write("<b>Granules in UAT only: </b>\n")
+        write_html_list(html_file, granule_diffs["test_only"])
+    
+    # Write out granules that were found if not writing NetCDF comparison
+    if  no_granule_data:
+        if len(ops_granules) > 0:
+            html_file.write("<h2>All Granules in OPS:</h2>\n")
+            write_html_list(html_file, ops_granules)
+        if len(test_granules) > 0:
+            html_file.write("<h2>All Granules in UAT:</h2>\n")
+            write_html_list(html_file, test_granules)
+        
+    # NetCDF files that were not equal
+    if len(nc_not_equal) > 0:
+        if nc_not_equal[0] != "Error":
+            html_file.write("<h2>Unequal NetCDF Granules: </h2>\n")
+            html_file.write("<ul>\n")
+            for granule in nc_not_equal: html_file.write(f"<li>{granule}</li>\n")
+            html_file.write("</ul>\n")
+        
 def is_equal(granule_data):
     """Determine if granule is not equal between OPS and UAT."""
     
@@ -336,8 +345,8 @@ def update_nav(archive_index):
         archive_data = fh.read().splitlines()
      
     for i in range(len(archive_data)):
-        if "class='nav'" in archive_data[i] or "<h3><a href='detail-reports/" in archive_data[i]:
-            archive_data[i] = archive_data[i].replace("href='", "href='../")     
+        if "class='nav'" in archive_data[i] or "<h3><a href='detail-reports/" in archive_data[i] or "<a href='detail-reports/report" in archive_data[i]:
+            archive_data[i] = archive_data[i].replace("href='", "href='../") 
     
     archive_data = '\n'.join(archive_data)
     with open(archive_index, 'w') as fh:
