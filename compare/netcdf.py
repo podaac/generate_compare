@@ -224,6 +224,8 @@ def write_netcdf_atts(att_dict, rf):
         
     rf.write("\n<<<< Global Attribute-Level Differences >>>>\n")
     equal = True
+    prod_date = ""
+    test_date = ""
         
     if len(att_dict["dev_present_only"]) != 0:
         equal = False
