@@ -12,13 +12,11 @@ This file can be run with command line arguments and contains the following:
     * Functions to facilties querying for and retrieving NetCDF files.
     
 Requires the following environmental variables be set and have access to
-AWS infrastructure:
+AWS infrastructure (Parameter Store: EDL):
 
     * AWS_ACCESS_KEY_ID
     * AWS_SECRET_ACCESS_KEY
     * AWS_DEFAULT_REGION
-    
-NOTE: Direct S3 access is untested while awaiting deployment.
 
 # installation
 
@@ -44,4 +42,7 @@ Command line arguments:
 python3 run_compare.py -g "20230330080000-JPL-L2P_GHRSST-SSTskin-MODIS_A-D-v02.0-fv01.0" -c "MODIS_A-JPL-L2P-v2019.0" -d -o "/generate/data/compare" -r "/generate/data/compare/reports" -l "/generate/data/compare/logs"
 
 ## Temporal range
+python3 run_compare.py -s "2023-03-30T06:30:00" -e "2023-03-30T9:30:00" -c "MODIS_A-JPL-L2P-v2019.0" -d -o "/generate/data/compare" -r "/generate/data/compare/reports" -l "/generate/data/compare/logs" -t -w -p -l "/var/www/compare"
+
+## Revision Date
 python3 run_compare.py -s "2023-03-30T06:30:00" -e "2023-03-30T9:30:00" -c "MODIS_A-JPL-L2P-v2019.0" -d -o "/generate/data/compare" -r "/generate/data/compare/reports" -l "/generate/data/compare/logs" -t -w -p -l "/var/www/compare" -v
