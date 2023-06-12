@@ -210,13 +210,37 @@ def run_query_date(shortname, temporal_range, token, url, to_download, search_re
     logger.info(f"Search URL: {url}")
     logger.info(f"Search parameters: {params}")
     res = requests.post(url=url, headers=headers, params=params)    
-    granule = res.json()
-    # logger.info(f"Search response: {granule}")
-    if to_download:
-        s3_granules = [ url["URL"] for item in granule["items"] for url in item["umm"]["RelatedUrls"] if url["Type"] == "GET DATA" ]
-    else:
-        s3_granules = [ url["URL"] for item in granule["items"] for url in item["umm"]["RelatedUrls"] if url["Type"] == "GET DATA VIA DIRECT ACCESS" ]
+    granules = res.json()
+    s3_granules = get_granule_links(to_download, granules)
     
+    # Keep searching until all granules have been found
+    if "CMR-Search-After" in res.headers.keys(): 
+        search_after = res.headers["CMR-Search-After"]
+    else:
+        search_after = ""
+    while search_after:
+        logger.info("Searching for more results...")
+        headers["CMR-Search-After"] = search_after
+        
+        res = requests.post(url=url, headers=headers, params=params)    
+        granules = res.json()
+        s3_granules.extend(get_granule_links(to_download, granules))
+        if "CMR-Search-After" in res.headers.keys(): 
+            search_after = res.headers["CMR-Search-After"]
+        else:
+            search_after = ""        
+    
+    logger.info("Located all available granule links for search query.")
+    return s3_granules
+
+def get_granule_links(to_download, granules):
+    """Return list of granule links for either https or S3."""
+    
+    if to_download:
+        s3_granules = [ url["URL"] for item in granules["items"] for url in item["umm"]["RelatedUrls"] if url["Type"] == "GET DATA" ]
+    else:
+        s3_granules = [ url["URL"] for item in granules["items"] for url in item["umm"]["RelatedUrls"] if url["Type"] == "GET DATA VIA DIRECT ACCESS" ]
+        
     return s3_granules
       
 def run_query_name(shortname, granule_name, token, url, to_download):
