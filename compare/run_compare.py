@@ -111,7 +111,7 @@ class Compare:
             self.netcdf = compare_netcdfs_dl(granule_intersection, download_dir, self.logger)
         else:
             try:
-                s3_creds = get_s3_creds(self.logger)
+                s3_creds = get_s3_creds(self.edl_creds, self.logger)
                 self.netcdf = compare_netcdfs_s3(granule_intersection, ops_prefix, test_prefix, s3_creds, self.logger)
             except botocore.exceptions.ClientError as e:
                 raise e
@@ -370,7 +370,8 @@ def create_args():
     arg_parser.add_argument("-o",
                             "--downloaddir",
                             type=str,
-                            help="Path download files to")
+                            help="Path download files to",
+                            default="")
     arg_parser.add_argument("-r",
                             "--reportdir",
                             type=str,

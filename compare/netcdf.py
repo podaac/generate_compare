@@ -46,15 +46,16 @@ def compare_netcdfs_s3(nc_files, prod_prefix, dev_prefix, s3_creds, logger):
 
     netcdf_dict = {}
     for nc_file in nc_files:        
+        logger.info(f"Comparing: {nc_file}.")
         
         # Open datasets
-        prod_fs = fsspec.open(f"s3://{prod_prefix}/{nc_file}", mode="rb",
+        prod_fs = fsspec.open(f"{prod_prefix}/{nc_file}", mode="rb",
                               key=s3_creds["ops"]["key"], secret=s3_creds["ops"]["secret"],
-                              token=s3_creds["ops"]["token"])            
+                              token=s3_creds["ops"]["token"])
         prod_file = prod_fs.open()
         prod_ds = Dataset("prod_file", mode="r", memory=prod_file.read())
         
-        dev_fs = fsspec.open(f"s3://{dev_prefix}/{nc_file}", mode="rb",
+        dev_fs = fsspec.open(f"{dev_prefix}/{nc_file}", mode="rb",
                               key=s3_creds["test"]["key"], secret=s3_creds["test"]["secret"],
                               token=s3_creds["test"]["token"])
         dev_file = dev_fs.open()
