@@ -11,6 +11,12 @@ START=$8
 END=$9
 REVISION=${10}
 
+if [ $# -gt 10 ]; then
+    HTML_DIR=${11}
+else
+    HTML_DIR="FALSE"
+fi
+
 for i in  $(seq -f "%02g" $START $END ) 
 do
 
@@ -21,13 +27,32 @@ do
 
     if [ "$REVISION" = "TRUE" ]; then
 
-        echo "$PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR --revision"
-        $PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR --revision
+        if [ "$HTML_DIR" == "FALSE" ]; then
+
+            echo "$PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR --revision"
+            $PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR --revision
+
+        else
+
+            echo "$PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR -w -p $HTML_DIR --revision"
+            $PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR -w -p $HTML_DIR --revision
+
+        fi
+        
     
     else
 
-        echo "$PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR"
-        $PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR
+        if [ "$HTML_DIR" == "FALSE" ]; then
+
+            echo "$PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR"
+            $PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR
+
+        else
+
+            echo "$PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR -w -p $HTML_DIR"
+            $PYTHON_EXE $PYTHON_SCRIPT -s $START_DATE -e $END_DATE -c $DATASET -r $REPORT_DIR -t -l $LOG_DIR -w -p $HTML_DIR
+
+        fi
 
     fi
     
